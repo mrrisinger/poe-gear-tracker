@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PoE Gear Cost Tracker</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#09090b;--bg1:#0f0f12;--bg2:#141418;--bg3:#1c1c22;
+  --border:#26262e;--border-hi:#3a3a48;
+  --gold:#c8a84b;--gold-dim:#7a6428;--gold-bg:#c8a84b18;
+  --text:#c8c8c8;--text2:#808090;--text3:#48485a;
+  --chaos:#d946a8;--divine:#c8a84b;--found:#5aad5a;
+  --rN:#c8c8c8;--rM:#8888ff;--rR:#ffff77;--rU:#af6025;
+  --fui:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --fitem:Georgia,'Times New Roman',serif;
+}
+body{background:var(--bg0);color:var(--text);font-family:var(--fui);font-size:14px;min-height:100vh;overflow-x:hidden}
+
+/* ── NAV ── */
+.nav{display:flex;align-items:center;padding:0 16px;background:var(--bg1);border-bottom:1px solid var(--border);height:46px;position:sticky;top:0;z-index:100;gap:4px}
+.nav-tabs{display:flex;flex:1;gap:2px}
+.ntab{padding:0 16px;height:46px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);cursor:pointer;font-size:13px;font-family:var(--fui);letter-spacing:.4px;transition:color .15s,border-color .15s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.ntab:hover{color:var(--text)}
+.ntab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.badge{display:inline-flex;align-items:center;justify-content:center;background:var(--gold);color:#000;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;padding:0 4px}
+.nav-right{display:flex;align-items:center;gap:8px}
+.unsaved{font-size:11px;color:#e8973a;opacity:0;transition:opacity .3s}
+.unsaved.on{opacity:1}
+
+/* ── BUTTONS ── */
+.btn{padding:5px 12px;border:1px solid var(--border);border-radius:3px;background:var(--bg3);color:var(--text);cursor:pointer;font-size:12px;font-family:var(--fui);transition:border-color .15s,background .15s;white-space:nowrap}
+.btn:hover{border-color:var(--border-hi);background:#202028}
+.btn-gold{background:var(--gold-bg);border-color:var(--gold-dim);color:var(--gold)}
+.btn-gold:hover{border-color:var(--gold);background:#c8a84b22}
+.btn-red{border-color:#4a1818;color:#d05050}
+.btn-red:hover{border-color:#8a2020;background:#1a0808}
+.btn-sm{padding:3px 10px;font-size:11px}
+.btn-ag{border-color:#3a2a5a;color:#a080e0;background:#a080e010}
+.btn-ag:hover{border-color:#6a4a9a;background:#a080e020}
+.btn-ag.active{border-color:#7050b0;color:#c0a0ff;background:#a080e028}
+
+/* ── VIEWS ── */
+.view{display:none;padding:20px;max-width:1200px;margin:0 auto}
+.view.on{display:block}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
+select,input[type=text],input[type=number]{background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:5px 9px;font-size:13px;font-family:var(--fui);outline:none;transition:border-color .15s}
+select:focus,input:focus{border-color:var(--gold-dim)}
+select{cursor:pointer;min-width:130px}
+.sep{width:1px;height:20px;background:var(--border)}
+
+/* ── GEAR AREA (outer flex container) ── */
+.gear-area{display:flex;gap:10px;align-items:flex-start}
+
+/* ── JEWEL COLUMNS ── */
+.jewel-col{display:flex;flex-direction:column;gap:5px;flex-shrink:0;width:82px}
+.jewel-col-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);text-align:center;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:2px}
+
+/* ── MAIN GEAR GRID ── */
+.gear-grid{
+  display:grid;
+  grid-template-columns:repeat(6,68px);
+  gap:6px;
+  grid-template-areas:
+    ". helmet helmet amulet . ."
+    "w1 r1 body body r2 w2"
+    "w1 gloves belt belt boots w2"
+    ". f1 f2 f3 f4 f5";
+  flex-shrink:0;
+}
+.slot[data-slot=weapon1]{grid-area:w1}
+.slot[data-slot=weapon2]{grid-area:w2}
+.slot[data-slot=helmet]{grid-area:helmet}
+.slot[data-slot=bodyArmour]{grid-area:body}
+.slot[data-slot=gloves]{grid-area:gloves}
+.slot[data-slot=boots]{grid-area:boots}
+.slot[data-slot=amulet]{grid-area:amulet}
+.slot[data-slot=ring1]{grid-area:r1}
+.slot[data-slot=ring2]{grid-area:r2}
+.slot[data-slot=belt]{grid-area:belt}
+.slot[data-slot=flask1]{grid-area:f1}
+.slot[data-slot=flask2]{grid-area:f2}
+.slot[data-slot=flask3]{grid-area:f3}
+.slot[data-slot=flask4]{grid-area:f4}
+.slot[data-slot=flask5]{grid-area:f5}
+
+/* ── AG PANEL ── */
+.ag-panel{flex-shrink:0;width:210px}
+.ag-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #3a2a5a}
+.ag-title{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#a080e0;font-weight:600}
+.ag-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:5px;
+  grid-template-areas:
+    ". ag-helm ."
+    "ag-w1 ag-body ag-w2"
+    "ag-gl . ag-boots";
+}
+.slot[data-slot=ag_helmet]{grid-area:ag-helm}
+.slot[data-slot=ag_bodyArmour]{grid-area:ag-body}
+.slot[data-slot=ag_weapon1]{grid-area:ag-w1}
+.slot[data-slot=ag_weapon2]{grid-area:ag-w2}
+.slot[data-slot=ag_gloves]{grid-area:ag-gl}
+.slot[data-slot=ag_boots]{grid-area:ag-boots}
+
+/* ── SLOT TILES ── */
+.slot{
+  background:var(--bg1);border:1px solid var(--border);border-radius:4px;
+  padding:5px 6px;cursor:pointer;transition:border-color .15s,background .15s;
+  min-height:72px;display:flex;flex-direction:column;gap:2px;
+  position:relative;overflow:hidden;user-select:none;
+}
+/* jewel/gem slots compact */
+.jewel-col .slot{min-height:46px;padding:4px 5px;width:100%}
+/* flasks taller */
+.slot[data-slot^=flask]{min-height:82px}
+/* AG slots */
+.ag-grid .slot{min-height:62px;padding:5px 6px}
+/* image-dominant layout helpers */
+.slot-img-area{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;padding:2px}
+.slot-img-large{object-fit:contain;max-width:100%;max-height:100%;display:block;border-radius:2px}
+.slot-img-foot{display:flex;align-items:center;justify-content:space-between;gap:3px;padding-top:3px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.slot-img-foot .slot-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:11px}
+.slot-img-foot .slot-price{font-size:10px;flex-shrink:0}
+/* dim label on occupied slots — image speaks for itself */
+.slot.has-item .slot-lbl{opacity:.28}
+
+.slot:hover:not(.locked){border-color:var(--border-hi);background:#111116}
+.slot.has-item{border-color:#303040}
+.slot.has-item:hover{border-color:#484860}
+.slot.locked{opacity:.35;cursor:default;border-style:dashed}
+
+/* AG slot accent border */
+.ag-grid .slot{border-color:#2a2040}
+.ag-grid .slot:hover:not(.locked){border-color:#4a3880}
+.ag-grid .slot.has-item{border-color:#3a2860}
+.ag-grid .slot.has-item:hover{border-color:#5a40a0}
+
+/* Jewel slot accent */
+.jewel-col .slot{border-color:#1e2830}
+.jewel-col .slot:hover{border-color:#2e4050}
+.jewel-col .slot.has-item{border-color:#2a3c50}
+
+.slot-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);line-height:1}
+.jewel-col .slot-lbl{font-size:9px;letter-spacing:.5px}
+.slot-name{font-family:var(--fitem);font-size:13px;line-height:1.25}
+.jewel-col .slot-name{font-size:12px}
+.ag-grid .slot-name{font-size:12px}
+.slot-base{font-size:11px;color:var(--text2)}
+.slot-price{font-size:11px;margin-top:auto;padding-top:2px}
+.jewel-col .slot-price{font-size:10px}
+
+.rN .slot-name{color:var(--rN)}
+.rM .slot-name{color:var(--rM)}
+.rR .slot-name{color:var(--rR)}
+.rU .slot-name{color:var(--rU)}
+
+/* history */
+.slot-hist{margin-top:5px;padding-top:4px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.hist-row{font-size:10px;color:var(--text3);display:flex;justify-content:space-between;gap:4px}
+.hist-row-name{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* gear footer */
+.gear-footer{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.hist-toggle{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--text2);font-size:13px;user-select:none}
+.total-cost{font-size:14px;color:var(--text2)}
+.total-cost strong{color:var(--gold);font-size:15px}
+
+/* ── IMAGE LOADING PLACEHOLDER ── */
+.img-loading{width:32px;height:32px;background:linear-gradient(90deg,var(--bg3) 25%,var(--border-hi) 50%,var(--bg3) 75%);background-size:300% 100%;border-radius:2px;flex-shrink:0;animation:shimmer 1.6s ease infinite}
+.img-loading.sm{width:24px;height:24px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── TOOLTIP ── */
+.tip{
+  position:fixed;z-index:300;background:#0b0b0d;border:1px solid #555;
+  border-radius:3px;min-width:280px;max-width:400px;pointer-events:none;
+  box-shadow:0 8px 40px rgba(0,0,0,.85);display:none;
+}
+.tip.on{display:block}
+.tip-head{padding:10px 14px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.07)}
+.tip-name{font-family:var(--fitem);font-size:16px;font-weight:bold;line-height:1.2}
+.tip-base{font-family:var(--fitem);font-size:13px;margin-top:2px;opacity:.85}
+.tip-section{padding:5px 14px}
+.tip-div{height:1px;background:linear-gradient(to right,transparent,rgba(255,255,255,.13),transparent);margin:0 10px}
+.tip-line{font-size:12px;line-height:1.65;color:#d0d0d0}
+.tip-line.prop{color:#707080}
+.tip-line.crafted{color:#8888ff}
+.tip-line.mod{color:#88ddcc}
+.tip-line.flavour{color:#b09050;font-style:italic}
+.tip-img-wrap{text-align:center;padding:10px 14px 12px;border-top:1px solid rgba(255,255,255,.07)}
+.tip-price{padding:6px 14px 10px;font-size:12px;color:var(--text2);border-top:1px solid rgba(255,255,255,.07);margin-top:2px}
+.tip-actions{display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-top:1px solid var(--border);background:rgba(0,0,0,.4);pointer-events:auto}
+
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .15s}
+.overlay.on{opacity:1;pointer-events:auto}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;min-width:400px;max-width:560px;width:100%;box-shadow:0 20px 80px rgba(0,0,0,.9);transform:translateY(-6px);transition:transform .15s}
+.overlay.on .modal{transform:translateY(0)}
+.modal-title{font-size:15px;color:var(--gold);font-family:var(--fitem);margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.fg{margin-bottom:15px}
+.flbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);margin-bottom:5px}
+textarea{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:8px 10px;font-size:12px;font-family:'Courier New',monospace;resize:vertical;outline:none;transition:border-color .15s;min-height:160px}
+textarea:focus{border-color:var(--gold-dim)}
+.price-row{display:flex;gap:7px}
+.price-row input{flex:1}
+.chk-row{display:flex;align-items:center;gap:8px;color:var(--text2);font-size:13px;cursor:pointer}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.parse-pre{margin-top:7px;padding:8px 10px;background:var(--bg0);border:1px solid var(--border);border-radius:3px;font-size:12px;color:var(--text2);min-height:38px}
+.parse-pre .pn{font-size:14px;font-family:var(--fitem)}
+
+/* awaiting sale */
+.aw-list{max-height:420px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:7px}
+.aw-item{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);transition:border-color .15s}
+.aw-item:hover{border-color:var(--border-hi)}
+.aw-info{flex:1;min-width:0}
+.aw-name{font-family:var(--fitem);font-size:13px}
+.aw-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.aw-bought{font-size:11px;margin-top:3px}
+.aw-btns{display:flex;gap:5px;flex-shrink:0}
+
+/* ── REPORTS ── */
+.rep-table{width:100%;border-collapse:collapse;margin-top:14px}
+.rep-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text2);padding:7px 12px;border-bottom:1px solid var(--border);font-weight:400}
+.rep-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.035)}
+.rep-table tr.tot td{border-top:1px solid var(--border);border-bottom:none;color:var(--gold);font-weight:600}
+.rep-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty h3{font-size:17px;margin-bottom:7px;font-weight:400;color:var(--text2)}
+.empty p{font-size:13px;line-height:1.6}
+.pc{color:var(--chaos)}.pd{color:var(--divine)}.pf{color:var(--found)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hi)}
+input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;cursor:pointer}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:20px;padding:9px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:13px;z-index:500;transform:translateY(50px);opacity:0;transition:transform .22s,opacity .22s}
+.toast.on{transform:translateY(0);opacity:1}
+.toast.ok{border-color:#2a5a2a;color:#70d070}
+.toast.err{border-color:#5a2a2a;color:#e07070}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-tabs">
+    <button class="ntab active" onclick="setView('gear')">Gear</button>
+    <button class="ntab" onclick="setView('reports')">Reports</button>
+    <button class="ntab" onclick="openAwaitingModal()">
+      Awaiting Sale
+      <span class="badge" id="aw-badge" style="display:none">0</span>
+    </button>
+  </div>
+  <div class="nav-right">
+    <span class="unsaved" id="unsaved">● Unsaved</span>
+    <button class="btn btn-sm" onclick="doLoad()">Load</button>
+    <button class="btn btn-sm btn-gold" onclick="doSave()">Save</button>
+  </div>
+</nav>
+
+<!-- GEAR VIEW -->
+<div class="view on" id="gear-view">
+  <div class="toolbar">
+    <span class="lbl">League</span>
+    <select id="lg-sel" onchange="onLgChange()"><option value="">— Select —</option></select>
+    <button class="btn btn-sm" onclick="openAddLgModal()">+ League</button>
+    <div class="sep"></div>
+    <span class="lbl">Character</span>
+    <select id="ch-sel" onchange="onChChange()"><option value="">— Select —</option></select>
+    <button class="btn btn-sm" id="add-ch-btn" onclick="openAddChModal()" style="display:none">+ Character</button>
+    <button class="btn btn-sm btn-red" id="del-ch-btn" onclick="delChar()" style="display:none" title="Delete character">✕</button>
+  </div>
+  <div id="gear-body"></div>
+</div>
+
+<!-- REPORTS VIEW -->
+<div class="view" id="reports-view">
+  <div class="toolbar">
+    <span class="lbl">League</span>
+    <select id="rep-lg-sel" onchange="renderReports()"><option value="">— Select —</option></select>
+    <div class="sep"></div>
+    <span class="lbl">1 Divine =</span>
+    <input type="number" id="ratio" value="160" min="1" max="99999" style="width:76px" onchange="S.divineRatio=Number(this.value)||160;markDirty();renderReports();renderGear()">
+    <span class="lbl">Chaos</span>
+  </div>
+  <div id="rep-body"></div>
+</div>
+
+<!-- TOOLTIP -->
+<div class="tip" id="tip" onmouseenter="cancelHideTip()" onmouseleave="schedHideTip()">
+  <div class="tip-head" id="tip-head">
+    <div class="tip-name" id="tip-name"></div>
+    <div class="tip-base" id="tip-base"></div>
+  </div>
+  <div id="tip-body"></div>
+  <div class="tip-price" id="tip-price"></div>
+  <div class="tip-actions" id="tip-acts"></div>
+</div>
+
+<!-- MODAL: Add Item -->
+<div class="overlay" id="m-add-item">
+  <div class="modal">
+    <div class="modal-title" id="m-add-item-title">Add Item</div>
+    <div class="fg">
+      <label class="flbl">Item Text (paste from PoE)</label>
+      <textarea id="paste-area" placeholder="Paste item text here (Ctrl+C on item in-game)…" oninput="onPaste()"></textarea>
+      <div class="parse-pre" id="paste-prev">Paste item text above to preview…</div>
+    </div>
+    <div class="fg" id="fg-2h" style="display:none">
+      <label class="chk-row"><input type="checkbox" id="chk-2h"> Two-Handed Weapon</label>
+    </div>
+    <div class="fg">
+      <label class="flbl">Purchase Price</label>
+      <div class="price-row">
+        <input type="number" id="buy-val" placeholder="0" min="0" step="0.01">
+        <select id="buy-cur">
+          <option value="chaos">Chaos Orb</option>
+          <option value="divine">Divine Orb</option>
+          <option value="found">Found (free)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeM('m-add-item')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitAdd()">Add Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Sell Item -->
+<div class="overlay" id="m-sell">
+  <div class="modal" style="min-width:340px;max-width:400px">
+    <div class="modal-title">Set Sell Price</div>
+    <div style="margin-bottom:14px;font-family:var(--fitem);font-size:15px" id="sell-item-lbl"></div>
+    <div class="fg">
+      <label class="flbl">Sell Price</label>
+      <div class="price-row">
+        <input type="number" id="sell-val" placeholder="0" min="0" step="0.01">
+        <select id="sell-cur">
+          <option value="chaos">Chaos Orb</option>
+          <option value="divine">Divine Orb</option>
+          <option value="found">Found (free)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeM('m-sell')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitSell()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Awaiting Sale -->
+<div class="overlay" id="m-awaiting">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-title">Awaiting Sale</div>
+    <div class="aw-list" id="aw-list"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeM('m-awaiting')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add League -->
+<div class="overlay" id="m-add-lg">
+  <div class="modal" style="min-width:320px;max-width:380px">
+    <div class="modal-title">Add League</div>
+    <div class="fg">
+      <label class="flbl">League Name</label>
+      <input type="text" id="lg-name" placeholder="e.g. 3.28 Mirage" style="width:100%" onkeydown="if(event.key==='Enter')submitAddLg()">
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeM('m-add-lg')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitAddLg()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Character -->
+<div class="overlay" id="m-add-ch">
+  <div class="modal" style="min-width:320px;max-width:380px">
+    <div class="modal-title">Add Character</div>
+    <div class="fg">
+      <label class="flbl">Character Name</label>
+      <input type="text" id="ch-name" placeholder="e.g. FireWitch" style="width:100%" onkeydown="if(event.key==='Enter')submitAddCh()">
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeM('m-add-ch')">Cancel</button>
+      <button class="btn btn-gold" onclick="submitAddCh()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// SLOT DEFINITIONS
+// ════════════════════════════════════════════════════════════
+
+const MAIN_SLOTS = [
+  {key:'weapon1',    lbl:'Weapon 1'},
+  {key:'weapon2',    lbl:'Weapon 2'},
+  {key:'helmet',     lbl:'Helmet'},
+  {key:'bodyArmour', lbl:'Body Armour'},
+  {key:'gloves',     lbl:'Gloves'},
+  {key:'boots',      lbl:'Boots'},
+  {key:'amulet',     lbl:'Amulet'},
+  {key:'ring1',      lbl:'Ring'},
+  {key:'ring2',      lbl:'Ring'},
+  {key:'belt',       lbl:'Belt'},
+  {key:'flask1',     lbl:'Flask'},
+  {key:'flask2',     lbl:'Flask'},
+  {key:'flask3',     lbl:'Flask'},
+  {key:'flask4',     lbl:'Flask'},
+  {key:'flask5',     lbl:'Flask'},
+];
+
+// Left column: Skill Gems 1–10. Right column: Jewels 1–10.
+const GEM_SLOTS   = Array.from({length:10}, (_,i) => ({key:`gem${i+1}`,   lbl:`Gem ${i+1}`}));
+const JEWEL_SLOTS = Array.from({length:10}, (_,i) => ({key:`jewel${i+1}`, lbl:`Jewel ${i+1}`}));
+
+const AG_SLOTS = [
+  {key:'ag_weapon1',    lbl:'Weapon 1', fullLbl:'AG Weapon 1'},
+  {key:'ag_weapon2',    lbl:'Weapon 2', fullLbl:'AG Weapon 2'},
+  {key:'ag_helmet',     lbl:'Helmet',   fullLbl:'AG Helmet'},
+  {key:'ag_bodyArmour', lbl:'Body',     fullLbl:'AG Body Armour'},
+  {key:'ag_gloves',     lbl:'Gloves',   fullLbl:'AG Gloves'},
+  {key:'ag_boots',      lbl:'Boots',    fullLbl:'AG Boots'},
+];
+
+const ALL_SLOTS = [...MAIN_SLOTS, ...GEM_SLOTS, ...JEWEL_SLOTS, ...AG_SLOTS];
+
+function slotMeta(key){ return ALL_SLOTS.find(s=>s.key===key)||{key,lbl:key,fullLbl:key}; }
+function slotDisplayLbl(key){ const m=slotMeta(key); return m.fullLbl||m.lbl; }
+
+const RARITY_COLOR = {Normal:'#c8c8c8',Magic:'#8888ff',Rare:'#ffff77',Unique:'#af6025'};
+const PROP_RE = /^(Quality|Armour|Evasion|Energy Shield|Requirements|Level|Str|Dex|Int|Sockets|Item Level|Corrupted|Mirrored|Unidentified)[\s:]/;
+
+// weapon slot pairs: when a 2H is equipped in the first, the second is locked
+const W2H_PAIRS = {weapon1:'weapon2', ag_weapon1:'ag_weapon2'};
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+
+let S = { version:2, leagues:[], divineRatio:160 };
+
+let UI = {
+  lgId: null,
+  chId: null,
+  view: 'gear',
+  showHist: false,
+  dirty: false,
+  addSlot: null,
+  sellCtx: null,
+};
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+
+const uid = () => crypto.randomUUID ? crypto.randomUUID()
+  : Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+const h = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function getLg(){ return S.leagues.find(l=>l.id===UI.lgId)||null; }
+function getCh(){
+  const lg=getLg(); if(!lg) return null;
+  return lg.characters.find(c=>c.id===UI.chId)||null;
+}
+
+function emptySlots(){
+  const o={};
+  for(const s of ALL_SLOTS) o[s.key]={activeItem:null,isTwoHanded:false,history:[]};
+  return o;
+}
+
+// Ensure a character has all slot keys (handles old saves missing new slots)
+function hydrateCh(ch){
+  if(!ch.slots) ch.slots={};
+  for(const s of ALL_SLOTS){
+    if(!ch.slots[s.key]) ch.slots[s.key]={activeItem:null,isTwoHanded:false,history:[]};
+  }
+  if(ch.agEnabled===undefined) ch.agEnabled=false;
+}
+
+function markDirty(){
+  UI.dirty=true;
+  document.getElementById('unsaved').classList.add('on');
+}
+function clearDirty(){
+  UI.dirty=false;
+  document.getElementById('unsaved').classList.remove('on');
+}
+
+let _toastTimer;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`toast ${type} on`;
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove('on'),2600);
+}
+
+function fmtPriceHtml(p){
+  if(!p||p.currency==='found') return '<span class="pf">Found</span>';
+  if(p.currency==='chaos') return `<span class="pc">${p.value}c</span>`;
+  if(p.currency==='divine') return `<span class="pd">${p.value}d</span>`;
+  return '';
+}
+function fmtPriceTxt(p){
+  if(!p||p.currency==='found') return 'Found';
+  if(p.currency==='chaos') return `${p.value} Chaos`;
+  if(p.currency==='divine') return `${p.value} Divine`;
+  return '';
+}
+function toDiv(p, ratio){
+  if(!p||p.currency==='found') return 0;
+  if(p.currency==='divine') return Number(p.value);
+  if(p.currency==='chaos') return Number(p.value)/ratio;
+  return 0;
+}
+function rColor(r){ return RARITY_COLOR[r]||'#c8c8c8'; }
+function rClass(r){ return r?'r'+r[0]:''; }
+
+// ════════════════════════════════════════════════════════════
+// ITEM PARSER
+// ════════════════════════════════════════════════════════════
+
+function parseItem(text){
+  if(!text||!text.trim()) return null;
+  const DIV='--------';
+  const lines=text.split('\n').map(l=>l.trimEnd());
+  const sections=[]; let cur=[];
+  for(const ln of lines){
+    if(ln===DIV){ sections.push(cur); cur=[]; } else cur.push(ln);
+  }
+  if(cur.length) sections.push(cur);
+  const hdr=sections[0]||[];
+  let itemClass=null,rarity=null,name=null,baseType=null;
+  for(const ln of hdr){
+    if(ln.startsWith('Item Class:')) itemClass=ln.slice(11).trim();
+    else if(ln.startsWith('Rarity:')) rarity=ln.slice(7).trim();
+  }
+  const ri=hdr.findIndex(l=>l.startsWith('Rarity:'));
+  if(ri>=0){
+    const after=hdr.slice(ri+1).filter(l=>l.trim());
+    if(after.length>=2){ name=after[0]; baseType=after[1]; }
+    else if(after.length===1){ name=after[0]; baseType=after[0]; }
+  }
+  if(!rarity||!name) return null;
+  return {
+    id:uid(), name, baseType:baseType||name,
+    itemClass:itemClass||'', rarity,
+    rawText:text.trim(),
+    imageUrl:null,
+    purchasePrice:null, sellPrice:null,
+    status:'active',
+    dateAdded:new Date().toISOString(), dateSold:null,
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// IMAGE API
+// ════════════════════════════════════════════════════════════
+
+const WIKI = 'https://www.poewiki.net';
+const imageCache = new Map(); // searchTerm → url | null
+
+function getImageSearchTerm(item){
+  // Unique items and gems use the item name; everything else uses base type
+  return (item.rarity==='Unique'||item.rarity==='Gem') ? item.name : item.baseType;
+}
+
+async function fetchImageUrl(filename){
+  const p=new URLSearchParams({action:'query',titles:`File:${filename}`,prop:'imageinfo',iiprop:'url',format:'json',origin:'*'});
+  try{
+    const r=await fetch(`${WIKI}/w/api.php?${p}`);
+    const d=await r.json();
+    const pages=d?.query?.pages; if(!pages) return null;
+    const page=Object.values(pages)[0];
+    return page?.imageinfo?.[0]?.url||null;
+  }catch(e){ console.warn('imageinfo failed:',e); return null; }
+}
+
+async function cargoLookup(searchTerm){
+  const p=new URLSearchParams({action:'cargoquery',tables:'items',fields:'items.name,items.inventory_icon',where:`items.name="${searchTerm}"`,limit:'1',format:'json',origin:'*'});
+  try{
+    const r=await fetch(`${WIKI}/w/api.php?${p}`);
+    const d=await r.json();
+    return d?.cargoquery?.[0]?.title?.['inventory icon']||null;
+  }catch(e){ console.warn('cargo lookup failed:',e); return null; }
+}
+
+async function fetchItemImage(searchTerm){
+  if(imageCache.has(searchTerm)) return imageCache.get(searchTerm);
+  // Strategy 1: constructed filename (fastest, works for most items)
+  let url=await fetchImageUrl(`${searchTerm} inventory icon.png`);
+  if(!url){
+    // Strategy 2: Cargo query fallback
+    const filename=await cargoLookup(searchTerm);
+    if(filename) url=await fetchImageUrl(filename);
+  }
+  imageCache.set(searchTerm, url||null);
+  return url||null;
+}
+
+// Walk every item in a loaded save and call fn(item)
+function walkAllItems(data, fn){
+  for(const lg of (data.leagues||[])){
+    for(const ch of (lg.characters||[])){
+      for(const key of Object.keys(ch.slots||{})){
+        const sl=ch.slots[key];
+        if(sl.activeItem) fn(sl.activeItem);
+        for(const hx of (sl.history||[])) fn(hx);
+      }
+    }
+    for(const e of (lg.awaitingSale||[])) if(e.item) fn(e.item);
+  }
+}
+
+function migrateV1(data){
+  walkAllItems(data, item=>{ if(item.imageUrl===undefined) item.imageUrl=null; });
+  data.version=2;
+}
+
+function seedCacheFromSave(){
+  walkAllItems(S, item=>{
+    if(item.imageUrl&&item.imageUrl!=='loading'){
+      const term=getImageSearchTerm(item);
+      if(term&&!imageCache.has(term)) imageCache.set(term, item.imageUrl);
+    }
+  });
+}
+
+function refreshItemImage(chId, slotKey){
+  hideTip();
+  const lg=getLg(); if(!lg) return;
+  const ch=lg.characters.find(c=>c.id===chId); if(!ch) return;
+  hydrateCh(ch);
+  const item=ch.slots[slotKey]?.activeItem; if(!item) return;
+  const term=getImageSearchTerm(item);
+  imageCache.delete(term);
+  item.imageUrl='loading';
+  renderGear(); markDirty();
+  fetchItemImage(term).then(url=>{
+    item.imageUrl=url;
+    renderGear(); markDirty();
+    toast(url?'Image updated':'No image found on wiki');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// VIEWS
+// ════════════════════════════════════════════════════════════
+
+function setView(v){
+  UI.view=v;
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.ntab').forEach(el=>el.classList.remove('active'));
+  document.getElementById(`${v}-view`).classList.add('on');
+  document.querySelectorAll('.ntab')[v==='gear'?0:1].classList.add('active');
+  if(v==='reports'){ syncRepLgSel(); renderReports(); }
+}
+
+// ════════════════════════════════════════════════════════════
+// LEAGUE / CHARACTER
+// ════════════════════════════════════════════════════════════
+
+function syncLgSels(){
+  ['lg-sel','rep-lg-sel'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const prev=sel.value;
+    sel.innerHTML='<option value="">— Select —</option>';
+    for(const l of S.leagues){
+      const o=document.createElement('option');
+      o.value=l.id; o.textContent=l.name; sel.appendChild(o);
+    }
+    if(S.leagues.find(l=>l.id===prev)) sel.value=prev;
+  });
+}
+function syncRepLgSel(){
+  if(UI.lgId) document.getElementById('rep-lg-sel').value=UI.lgId;
+}
+function syncChSel(){
+  const sel=document.getElementById('ch-sel');
+  const lg=getLg();
+  sel.innerHTML='<option value="">— Select —</option>';
+  const addBtn=document.getElementById('add-ch-btn');
+  const delBtn=document.getElementById('del-ch-btn');
+  if(!lg){ addBtn.style.display='none'; delBtn.style.display='none'; return; }
+  addBtn.style.display='';
+  for(const c of lg.characters){
+    const o=document.createElement('option');
+    o.value=c.id; o.textContent=c.name; sel.appendChild(o);
+  }
+  if(lg.characters.find(c=>c.id===UI.chId)){
+    sel.value=UI.chId; delBtn.style.display='';
+  } else { UI.chId=null; delBtn.style.display='none'; }
+}
+
+function onLgChange(){
+  UI.lgId=document.getElementById('lg-sel').value||null;
+  UI.chId=null;
+  syncChSel(); renderGear(); updateBadge();
+}
+function onChChange(){
+  UI.chId=document.getElementById('ch-sel').value||null;
+  document.getElementById('del-ch-btn').style.display=UI.chId?'':'none';
+  renderGear();
+}
+
+function openAddLgModal(){
+  document.getElementById('lg-name').value='';
+  openM('m-add-lg');
+  setTimeout(()=>document.getElementById('lg-name').focus(),80);
+}
+function submitAddLg(){
+  const name=document.getElementById('lg-name').value.trim();
+  if(!name) return;
+  const lg={id:uid(),name,characters:[],awaitingSale:[]};
+  S.leagues.push(lg);
+  UI.lgId=lg.id;
+  closeM('m-add-lg');
+  syncLgSels();
+  document.getElementById('lg-sel').value=lg.id;
+  syncChSel(); renderGear(); markDirty();
+  toast(`League "${name}" added`);
+}
+
+function openAddChModal(){
+  document.getElementById('ch-name').value='';
+  openM('m-add-ch');
+  setTimeout(()=>document.getElementById('ch-name').focus(),80);
+}
+function submitAddCh(){
+  const name=document.getElementById('ch-name').value.trim();
+  if(!name) return;
+  const lg=getLg(); if(!lg) return;
+  const ch={id:uid(),name,slots:emptySlots(),agEnabled:false};
+  lg.characters.push(ch);
+  UI.chId=ch.id;
+  closeM('m-add-ch');
+  syncChSel();
+  document.getElementById('ch-sel').value=ch.id;
+  document.getElementById('del-ch-btn').style.display='';
+  renderGear(); markDirty();
+  toast(`Character "${name}" added`);
+}
+
+function delChar(){
+  const ch=getCh(); const lg=getLg();
+  if(!ch||!lg) return;
+  if(!confirm(`Delete "${ch.name}"? This cannot be undone.`)) return;
+  lg.characters=lg.characters.filter(c=>c.id!==ch.id);
+  lg.awaitingSale=lg.awaitingSale.filter(e=>e.lastCharacterId!==ch.id);
+  UI.chId=null;
+  syncChSel(); renderGear(); updateBadge(); markDirty();
+  toast('Character deleted');
+}
+
+// ════════════════════════════════════════════════════════════
+// ANIMATE GUARDIAN TOGGLE
+// ════════════════════════════════════════════════════════════
+
+function toggleAG(){
+  const ch=getCh(); if(!ch) return;
+  ch.agEnabled=!ch.agEnabled;
+  renderGear(); markDirty();
+  toast(ch.agEnabled ? 'Animate Guardian slots enabled' : 'Animate Guardian slots hidden');
+}
+
+// ════════════════════════════════════════════════════════════
+// GEAR RENDER
+// ════════════════════════════════════════════════════════════
+
+function renderGear(){
+  const el=document.getElementById('gear-body');
+  const lg=getLg(); const ch=getCh();
+  if(!lg){ el.innerHTML='<div class="empty"><h3>No League Selected</h3><p>Create a league to get started.</p></div>'; return; }
+  if(!ch){ el.innerHTML='<div class="empty"><h3>No Character Selected</h3><p>Add a character to track their gear.</p></div>'; return; }
+
+  hydrateCh(ch);
+  const ratio=parseInt(document.getElementById('ratio').value)||160;
+
+  // Count total cost across all tracked slots
+  let totalDiv=0;
+  for(const s of ALL_SLOTS){
+    const item=ch.slots[s.key]?.activeItem;
+    if(item) totalDiv+=toDiv(item.purchasePrice,ratio);
+  }
+
+  const isW2Locked=ch.slots.weapon1.isTwoHanded;
+  const isAGW2Locked=ch.slots.ag_weapon1.isTwoHanded;
+
+  // ── Main grid ──
+  let mainGrid=`<div class="gear-grid">`;
+  for(const s of MAIN_SLOTS){
+    mainGrid+=buildSlotTile(s,ch,s.key==='weapon2'&&isW2Locked);
+  }
+  mainGrid+=`</div>`;
+
+  // ── Left column: Skill Gems ──
+  let leftJewels=`<div class="jewel-col">
+    <div class="jewel-col-lbl">Skill Gems</div>`;
+  for(const s of GEM_SLOTS) leftJewels+=buildSlotTile(s,ch,false);
+  leftJewels+=`</div>`;
+
+  // ── Right column: Jewels ──
+  let rightJewels=`<div class="jewel-col">
+    <div class="jewel-col-lbl">Jewels</div>`;
+  for(const s of JEWEL_SLOTS) rightJewels+=buildSlotTile(s,ch,false);
+  rightJewels+=`</div>`;
+
+  // ── AG panel ──
+  let agPanel='';
+  if(ch.agEnabled){
+    let agGrid=`<div class="ag-grid">`;
+    for(const s of AG_SLOTS){
+      agGrid+=buildSlotTile(s,ch,s.key==='ag_weapon2'&&isAGW2Locked);
+    }
+    agGrid+=`</div>`;
+    agPanel=`<div class="ag-panel">
+      <div class="ag-header">
+        <span class="ag-title">Animate Guardian</span>
+        <button class="btn btn-sm btn-ag active" onclick="toggleAG()" title="Hide AG slots">✕</button>
+      </div>
+      ${agGrid}
+    </div>`;
+  }
+
+  // ── Footer ──
+  const agBtnLabel=ch.agEnabled?'Hide AG':'Animate Guardian';
+  const footer=`<div class="gear-footer">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <label class="hist-toggle">
+        <input type="checkbox" ${UI.showHist?'checked':''} onchange="UI.showHist=this.checked;renderGear()">
+        Show Slot History
+      </label>
+      <button class="btn btn-sm btn-ag ${ch.agEnabled?'active':''}" onclick="toggleAG()">⚗ ${agBtnLabel}</button>
+    </div>
+    <div class="total-cost">Current Gear: <strong>${totalDiv.toFixed(2)}d</strong></div>
+  </div>`;
+
+  el.innerHTML=`<div class="gear-area">
+    ${leftJewels}
+    <div>${mainGrid}</div>
+    ${rightJewels}
+    ${agPanel}
+  </div>${footer}`;
+}
+
+function buildSlotTile(slotDef, ch, locked){
+  const slot=ch.slots[slotDef.key];
+  const item=slot?.activeItem;
+  const rc=item?rClass(item.rarity):'';
+  const isSmall=slotDef.key.startsWith('gem')||slotDef.key.startsWith('jewel');
+
+  let inner=`<span class="slot-lbl">${h(slotDef.lbl)}</span>`;
+
+  if(locked){
+    inner+=`<div class="slot-img-area"><span style="font-size:10px;color:var(--text3)">2H</span></div>`;
+  } else if(item){
+    if(item.imageUrl==='loading'){
+      // Shimmer placeholder filling the tile
+      inner+=`<div class="slot-img-area"><div class="img-loading${isSmall?' sm':''}"></div></div>`;
+      inner+=item.purchasePrice
+        ?`<div class="slot-img-foot"><span class="slot-price">${fmtPriceHtml(item.purchasePrice)}</span></div>`
+        :'';
+    } else if(item.imageUrl){
+      // Image fills the tile — this is the primary display mode
+      inner+=`<div class="slot-img-area">`
+        +`<img class="slot-img-large" src="${h(item.imageUrl)}" `
+        +`style="border:1px solid ${rColor(item.rarity)}35;border-radius:2px" `
+        +`onerror="this.closest('.slot-img-area').innerHTML='<span class=slot-name style=font-size:11px;padding:0+4px>${h(item.name)}</span>'">`
+        +`</div>`;
+      inner+=item.purchasePrice
+        ?`<div class="slot-img-foot"><span class="slot-price">${fmtPriceHtml(item.purchasePrice)}</span></div>`
+        :'';
+    } else {
+      // No image: text-only layout (current fallback behaviour)
+      inner+=`<span class="slot-name">${h(item.name)}</span>`;
+      if(item.name!==item.baseType) inner+=`<span class="slot-base">${h(item.baseType)}</span>`;
+      if(item.purchasePrice) inner+=`<span class="slot-price">${fmtPriceHtml(item.purchasePrice)}</span>`;
+    }
+    if(UI.showHist&&slot.history.length){
+      inner+=`<div class="slot-hist">`;
+      for(const hx of slot.history){
+        inner+=`<div class="hist-row"><span class="hist-row-name">${h(hx.name)}</span>`
+          +`<span>${fmtPriceHtml(hx.purchasePrice)}</span>`
+          +(hx.sellPrice?`<span>→ ${fmtPriceHtml(hx.sellPrice)}</span>`:'')
+          +`</div>`;
+      }
+      inner+=`</div>`;
+    }
+  }
+
+  const cid=ch.id; const sk=slotDef.key;
+  const click=locked?''
+    :item?`onmouseenter="showTip(event,'${cid}','${sk}')" onmouseleave="schedHideTip()" data-hi="1"`
+    :`onclick="openAddModal('${sk}')"`;
+
+  return `<div class="slot ${item?'has-item '+rc:''} ${locked?'locked':''}" data-slot="${sk}" ${click}>${inner}</div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// TOOLTIP
+// ════════════════════════════════════════════════════════════
+
+let tipState={item:null,slot:null,chId:null};
+
+function showTip(e,chId,slotKey){
+  cancelHideTip();
+  const lg=getLg(); if(!lg) return;
+  const ch=lg.characters.find(c=>c.id===chId); if(!ch) return;
+  hydrateCh(ch);
+  const slot=ch.slots[slotKey];
+  const item=slot?.activeItem; if(!item) return;
+  tipState={item,slot:slotKey,chId};
+
+  const col=rColor(item.rarity);
+  const tipEl=document.getElementById('tip');
+  tipEl.style.borderColor=col;
+
+  const head=document.getElementById('tip-head');
+  head.style.background=`linear-gradient(to bottom,${col}1e,transparent)`;
+  head.style.borderBottomColor=`${col}30`;
+
+  // Header: always text-only (image moves to tooltip bottom, per layout2)
+  const baseTxt=item.name!==item.baseType?item.baseType:'';
+  head.innerHTML=`<div class="tip-name" style="color:${col}">${h(item.name)}</div>`
+    +(baseTxt?`<div class="tip-base" style="color:${col}">${h(baseTxt)}</div>`:'');
+
+  const DIV='--------';
+  const lines=item.rawText.split('\n').map(l=>l.trimEnd());
+  const sections=[]; let cur=[];
+  for(const ln of lines){
+    if(ln===DIV){ sections.push(cur); cur=[]; } else cur.push(ln);
+  }
+  if(cur.length) sections.push(cur);
+
+  const body=document.getElementById('tip-body');
+  body.innerHTML='';
+
+  // Determine which sections are flavour text (trailing prose with no stat lines)
+  function isFlavourSec(lines){
+    if(!lines.length) return false;
+    return !lines.some(l=>/^[+\-]/.test(l)||/^\d/.test(l)||PROP_RE.test(l)||/\(augmented\)|\(crafted\)/.test(l));
+  }
+
+  let first=true;
+  for(const sec of sections){
+    if(sec.some(l=>l.startsWith('Item Class:')||l.startsWith('Rarity:'))) continue;
+    const visLines=sec.filter(l=>l.trim());
+    if(!visLines.length) continue;
+    if(!first){ const dv=document.createElement('div'); dv.className='tip-div'; body.appendChild(dv); }
+    first=false;
+    const flavour=isFlavourSec(visLines);
+    const sd=document.createElement('div'); sd.className='tip-section';
+    for(const ln of visLines){
+      const d=document.createElement('div'); d.className='tip-line';
+      if(flavour){
+        d.classList.add('flavour'); d.textContent=ln;
+      } else if(ln.endsWith('(crafted)')){
+        d.classList.add('crafted'); d.textContent=ln.replace(/\s*\(crafted\)$/,'');
+      } else if(PROP_RE.test(ln)){
+        d.classList.add('prop'); d.textContent=ln;
+      } else if(/^[+\-]/.test(ln)){
+        d.classList.add('mod'); d.textContent=ln;
+      } else {
+        d.textContent=ln;
+      }
+      sd.appendChild(d);
+    }
+    body.appendChild(sd);
+  }
+
+  // Image at the bottom (layout2 style)
+  if(item.imageUrl&&item.imageUrl!=='loading'){
+    const wrap=document.createElement('div');
+    wrap.className='tip-img-wrap';
+    wrap.innerHTML=`<img src="${h(item.imageUrl)}" width="80" height="80" `
+      +`style="object-fit:contain;border-radius:2px;border:1px solid ${col}40" `
+      +`onerror="this.parentElement.style.display='none'">`;
+    body.appendChild(wrap);
+  }
+
+  const priceEl=document.getElementById('tip-price');
+  if(item.purchasePrice){ priceEl.innerHTML=`Purchased: ${fmtPriceTxt(item.purchasePrice)}`; priceEl.style.display=''; }
+  else priceEl.style.display='none';
+
+  document.getElementById('tip-acts').innerHTML=`
+    <button class="btn btn-sm" onclick="openAddModal('${slotKey}')">Replace</button>
+    <button class="btn btn-sm" onclick="deactivate('${chId}','${slotKey}')">Awaiting Sale</button>
+    <button class="btn btn-sm btn-gold" onclick="openSellModal('active','${chId}','${slotKey}')">Sell</button>
+    <button class="btn btn-sm" onclick="refreshItemImage('${chId}','${slotKey}')" title="Re-fetch image from wiki" style="margin-left:auto;opacity:.6">⟳</button>
+  `;
+
+  tipEl.classList.add('on');
+  posTip(e.clientX,e.clientY);
+}
+
+function posTip(x,y){
+  const tip=document.getElementById('tip');
+  const tw=tip.offsetWidth||300,th=tip.offsetHeight||200;
+  let left=x+18,top=y-16;
+  if(left+tw>window.innerWidth-12) left=x-tw-18;
+  if(top+th>window.innerHeight-12) top=window.innerHeight-th-12;
+  if(top<52) top=52;
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+}
+
+let _hideTipTimer=null;
+function schedHideTip(){
+  _hideTipTimer=setTimeout(hideTip,120);
+}
+function cancelHideTip(){
+  clearTimeout(_hideTipTimer);
+}
+function hideTip(){
+  clearTimeout(_hideTipTimer);
+  document.getElementById('tip').classList.remove('on');
+  tipState={item:null,slot:null,chId:null};
+}
+
+document.addEventListener('click',e=>{
+  const tip=document.getElementById('tip');
+  if(!tip.contains(e.target)&&!e.target.closest('[data-hi]')) hideTip();
+});
+
+// ════════════════════════════════════════════════════════════
+// ADD ITEM
+// ════════════════════════════════════════════════════════════
+
+function openAddModal(slotKey){
+  hideTip();
+  UI.addSlot=slotKey;
+  document.getElementById('paste-area').value='';
+  document.getElementById('buy-val').value='';
+  document.getElementById('buy-cur').value='chaos';
+  document.getElementById('paste-prev').innerHTML='Paste item text above to preview…';
+  document.getElementById('paste-prev').style.color='';
+  // Show 2H checkbox for main weapon1 and AG weapon1
+  const show2H=slotKey==='weapon1'||slotKey==='ag_weapon1';
+  document.getElementById('fg-2h').style.display=show2H?'':'none';
+  document.getElementById('chk-2h').checked=false;
+  document.getElementById('m-add-item-title').textContent=`Add Item — ${slotDisplayLbl(slotKey)}`;
+  openM('m-add-item');
+  setTimeout(()=>document.getElementById('paste-area').focus(),80);
+}
+
+function onPaste(){
+  const text=document.getElementById('paste-area').value;
+  const prev=document.getElementById('paste-prev');
+  const p=parseItem(text);
+  if(!p){
+    prev.innerHTML='Could not parse. Paste the full item text (Ctrl+C on item in-game).';
+    prev.style.color='#d05050'; return;
+  }
+  prev.style.color='';
+  prev.innerHTML=`<span class="pn" style="color:${rColor(p.rarity)}">${h(p.name)}</span>`
+    +(p.name!==p.baseType?`<br><span style="color:var(--text2)">${h(p.baseType)}</span>`:'')
+    +`<br><span style="color:var(--text3)">${p.rarity}${p.itemClass?' · '+p.itemClass:''}</span>`;
+}
+
+function submitAdd(){
+  const text=document.getElementById('paste-area').value;
+  const p=parseItem(text);
+  if(!p){ toast('Could not parse item text','err'); return; }
+
+  const valStr=document.getElementById('buy-val').value;
+  const cur=document.getElementById('buy-cur').value;
+  if(cur!=='found'&&(!valStr||Number(valStr)<0)){ toast('Enter a purchase price','err'); return; }
+  p.purchasePrice=cur==='found'?{value:0,currency:'found'}:{value:Number(valStr)||0,currency:cur};
+
+  const ch=getCh(); const lg=getLg();
+  if(!ch||!lg) return;
+  hydrateCh(ch);
+
+  const isW1Slot=UI.addSlot==='weapon1'||UI.addSlot==='ag_weapon1';
+  const is2H=isW1Slot&&document.getElementById('chk-2h').checked;
+  const pairedW2=W2H_PAIRS[UI.addSlot]; // e.g. 'weapon2' or 'ag_weapon2'
+
+  const slot=ch.slots[UI.addSlot];
+  if(slot.activeItem){
+    const old=slot.activeItem; old.status='awaiting_sale';
+    slot.history.push(old);
+    lg.awaitingSale.push({item:old,lastCharacterId:ch.id,lastCharacterName:ch.name,lastSlot:UI.addSlot});
+  }
+  p.status='active';
+  slot.activeItem=p;
+  slot.isTwoHanded=is2H;
+
+  if(is2H&&pairedW2){
+    const w2=ch.slots[pairedW2];
+    if(w2.activeItem){
+      const old=w2.activeItem; old.status='awaiting_sale';
+      w2.history.push(old);
+      lg.awaitingSale.push({item:old,lastCharacterId:ch.id,lastCharacterName:ch.name,lastSlot:pairedW2});
+      w2.activeItem=null;
+    }
+  }
+
+  closeM('m-add-item');
+  // Kick off async image fetch — item shows loading state immediately
+  const imgTerm=getImageSearchTerm(p);
+  p.imageUrl='loading';
+  renderGear(); updateBadge(); markDirty();
+  toast(`${p.name} equipped`);
+  fetchItemImage(imgTerm).then(url=>{ p.imageUrl=url; renderGear(); markDirty(); });
+}
+
+// ════════════════════════════════════════════════════════════
+// DEACTIVATE / SELL
+// ════════════════════════════════════════════════════════════
+
+function deactivate(chId,slotKey){
+  hideTip();
+  const lg=getLg(); if(!lg) return;
+  const ch=lg.characters.find(c=>c.id===chId); if(!ch) return;
+  hydrateCh(ch);
+  const slot=ch.slots[slotKey];
+  const item=slot?.activeItem; if(!item) return;
+  item.status='awaiting_sale';
+  slot.history.push(item);
+  slot.activeItem=null;
+  // Unlock paired weapon2 if this was a 2H weapon1
+  if(slot.isTwoHanded) slot.isTwoHanded=false;
+  lg.awaitingSale.push({item,lastCharacterId:ch.id,lastCharacterName:ch.name,lastSlot:slotKey});
+  renderGear(); updateBadge(); markDirty();
+  toast(`${item.name} moved to Awaiting Sale`);
+}
+
+function openSellModal(type,chId,slotOrIdx){
+  hideTip();
+  UI.sellCtx={type,chId,slotOrIdx};
+  let name='';
+  if(type==='active'){
+    const lg=getLg();
+    const ch=lg?.characters.find(c=>c.id===chId);
+    if(ch) hydrateCh(ch);
+    name=ch?.slots[slotOrIdx]?.activeItem?.name||'';
+  } else {
+    name=getLg()?.awaitingSale[slotOrIdx]?.item?.name||'';
+  }
+  document.getElementById('sell-item-lbl').textContent=name;
+  document.getElementById('sell-val').value='';
+  document.getElementById('sell-cur').value='chaos';
+  openM('m-sell');
+  setTimeout(()=>document.getElementById('sell-val').focus(),80);
+}
+
+function submitSell(){
+  const valStr=document.getElementById('sell-val').value;
+  const cur=document.getElementById('sell-cur').value;
+  if(cur!=='found'&&(!valStr||Number(valStr)<0)){ toast('Enter a sell price','err'); return; }
+  const sp=cur==='found'?{value:0,currency:'found'}:{value:Number(valStr)||0,currency:cur};
+
+  const lg=getLg(); if(!lg) return;
+  const ctx=UI.sellCtx;
+
+  if(ctx.type==='active'){
+    const ch=lg.characters.find(c=>c.id===ctx.chId); if(!ch) return;
+    hydrateCh(ch);
+    const slot=ch.slots[ctx.slotOrIdx];
+    const item=slot?.activeItem; if(!item) return;
+    item.sellPrice=sp; item.status='sold'; item.dateSold=new Date().toISOString();
+    slot.history.push(item); slot.activeItem=null;
+    if(slot.isTwoHanded) slot.isTwoHanded=false;
+    toast(`${item.name} sold`);
+  } else {
+    const idx=ctx.slotOrIdx;
+    const entry=lg.awaitingSale[idx]; if(!entry) return;
+    entry.item.sellPrice=sp; entry.item.status='sold'; entry.item.dateSold=new Date().toISOString();
+    const ch=lg.characters.find(c=>c.id===entry.lastCharacterId);
+    if(ch){
+      hydrateCh(ch);
+      const hItem=ch.slots[entry.lastSlot]?.history.find(x=>x.id===entry.item.id);
+      if(hItem){ hItem.sellPrice=sp; hItem.status='sold'; hItem.dateSold=entry.item.dateSold; }
+    }
+    lg.awaitingSale.splice(idx,1);
+    toast('Item sold');
+  }
+
+  closeM('m-sell');
+  renderGear(); updateBadge();
+  if(document.getElementById('m-awaiting').classList.contains('on')) renderAwList();
+  markDirty();
+}
+
+// ════════════════════════════════════════════════════════════
+// AWAITING SALE
+// ════════════════════════════════════════════════════════════
+
+function updateBadge(){
+  const badge=document.getElementById('aw-badge');
+  const count=getLg()?.awaitingSale?.length||0;
+  badge.textContent=count; badge.style.display=count?'':'none';
+}
+
+function openAwaitingModal(){ renderAwList(); openM('m-awaiting'); }
+
+function renderAwList(){
+  const lg=getLg();
+  const container=document.getElementById('aw-list');
+  if(!lg||!lg.awaitingSale.length){
+    container.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Nothing awaiting sale.</div>';
+    return;
+  }
+  container.innerHTML=lg.awaitingSale.map((entry,i)=>{
+    const item=entry.item;
+    const col=rColor(item.rarity);
+    const slbl=slotDisplayLbl(entry.lastSlot);
+    return `<div class="aw-item">
+      <div class="aw-info">
+        <div class="aw-name" style="color:${col};display:flex;align-items:center;gap:7px">
+          ${item.imageUrl&&item.imageUrl!=='loading'?`<img src="${h(item.imageUrl)}" width="24" height="24" style="object-fit:contain;flex-shrink:0;border-radius:2px" onerror="this.style.display='none'">`:``}
+          ${h(item.name)}
+        </div>
+        <div class="aw-meta">${h(item.baseType)} · ${h(entry.lastCharacterName)} · ${h(slbl)}</div>
+        <div class="aw-bought">Bought: ${fmtPriceHtml(item.purchasePrice)}</div>
+      </div>
+      <div class="aw-btns">
+        <button class="btn btn-sm btn-gold" onclick="openSellModal('awaiting',null,${i})">Set Sell Price</button>
+        <button class="btn btn-sm btn-red" onclick="removeAwItem(${i})" title="Remove">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function removeAwItem(idx){
+  const lg=getLg(); if(!lg) return;
+  lg.awaitingSale.splice(idx,1);
+  renderAwList(); updateBadge(); markDirty();
+}
+
+// ════════════════════════════════════════════════════════════
+// REPORTS
+// ════════════════════════════════════════════════════════════
+
+function renderReports(){
+  const lgId=document.getElementById('rep-lg-sel').value;
+  const ratio=parseInt(document.getElementById('ratio').value)||160;
+  const el=document.getElementById('rep-body');
+  if(!lgId){ el.innerHTML='<div class="empty"><h3>No League Selected</h3><p>Select a league above.</p></div>'; return; }
+  const lg=S.leagues.find(l=>l.id===lgId);
+  if(!lg) return;
+  if(!lg.characters.length){ el.innerHTML='<div class="empty"><h3>No Characters</h3><p>Add characters in the Gear view.</p></div>'; return; }
+
+  const fmt=v=>v.toFixed(2)+'d';
+
+  const rows=lg.characters.map(ch=>{
+    hydrateCh(ch);
+    let cur=0,spent=0,sold=0;
+    for(const s of ALL_SLOTS){
+      const slot=ch.slots[s.key]; if(!slot) continue;
+      if(slot.activeItem){ const c=toDiv(slot.activeItem.purchasePrice,ratio); cur+=c; spent+=c; }
+      for(const hx of slot.history){
+        spent+=toDiv(hx.purchasePrice,ratio);
+        if(hx.sellPrice) sold+=toDiv(hx.sellPrice,ratio);
+      }
+    }
+    return {name:ch.name,cur,spent,sold,net:spent-sold};
+  });
+
+  const tot=rows.reduce((a,r)=>({cur:a.cur+r.cur,spent:a.spent+r.spent,sold:a.sold+r.sold,net:a.net+r.net}),{cur:0,spent:0,sold:0,net:0});
+
+  el.innerHTML=`<table class="rep-table">
+    <thead><tr>
+      <th>Character</th>
+      <th class="num">Current Gear</th>
+      <th class="num">Total Spent</th>
+      <th class="num">Total Sold</th>
+      <th class="num">Net Investment</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${h(r.name)}</td>
+        <td class="num">${fmt(r.cur)}</td>
+        <td class="num">${fmt(r.spent)}</td>
+        <td class="num">${fmt(r.sold)}</td>
+        <td class="num">${fmt(r.net)}</td>
+      </tr>`).join('')}
+    </tbody>
+    <tfoot><tr class="tot">
+      <td>League Total</td>
+      <td class="num">${fmt(tot.cur)}</td>
+      <td class="num">${fmt(tot.spent)}</td>
+      <td class="num">${fmt(tot.sold)}</td>
+      <td class="num">${fmt(tot.net)}</td>
+    </tr></tfoot>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════════════════════
+
+function openM(id){ document.getElementById(id).classList.add('on'); }
+function closeM(id){ document.getElementById(id).classList.remove('on'); }
+
+document.querySelectorAll('.overlay').forEach(el=>{
+  el.addEventListener('click',e=>{ if(e.target===el) closeM(el.id); });
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.overlay.on').forEach(m=>closeM(m.id));
+    hideTip();
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// SAVE / LOAD
+// ════════════════════════════════════════════════════════════
+
+function doSave(){
+  const blob=new Blob([JSON.stringify(S,(k,v)=>k==='imageUrl'&&v==='loading'?null:v,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='poe-gear-tracker.json'; a.click();
+  URL.revokeObjectURL(url);
+  clearDirty(); toast('Saved!');
+}
+
+function doLoad(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const loaded=JSON.parse(ev.target.result);
+        const knownVersions=[1,2];
+        if(!knownVersions.includes(loaded.version)&&!confirm(`Unknown save version (v${loaded.version}). Load anyway?`)) return;
+        if(!loaded.leagues||!Array.isArray(loaded.leagues)) throw new Error('Invalid save file');
+        // Migrate v1 → v2 (adds imageUrl:null to all items)
+        if(loaded.version===1) migrateV1(loaded);
+        for(const lg of loaded.leagues)
+          for(const ch of lg.characters) hydrateCh(ch);
+        S=loaded;
+        if(!S.divineRatio) S.divineRatio=160;
+        document.getElementById('ratio').value=S.divineRatio;
+        imageCache.clear();
+        seedCacheFromSave();
+        UI.lgId=null; UI.chId=null;
+        syncLgSels(); syncChSel(); renderGear(); updateBadge(); clearDirty();
+        toast(`Loaded: ${file.name}`);
+      }catch(err){ toast('Load failed: '+err.message,'err'); }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+
+document.getElementById('ratio').value=S.divineRatio;
+renderGear();
+updateBadge();
+</script>
+</body>
+</html>
